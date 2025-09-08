@@ -239,7 +239,7 @@ export def Render(): string
     var show_ord = g:buftabline_numbers == 2
     var show_tab_ind = g:buftabline_tab_indicators
     var current_tab = tabpagenr()
-    var lpad = g:buftabline_separators ? nr2char(0x23B8) : ' '  # Fixed: nr2char not nr2Char
+    var lpad = g:buftabline_separators ? nr2char(0x23B8) : ' '
 
     var bufnums = UserBuffers()
     var currentbuf = winbufnr(0)
@@ -280,7 +280,7 @@ export def Render(): string
         if show_tab_ind
             combined_pre = 'T' .. current_tab .. ' '
         endif
-        combined_pre .= label_info.pre
+        combined_pre = combined_pre .. label_info.pre  # Fixed: Use .. instead of .=
         tab.pre = combined_pre
 
         # Set label and handle path tabs
@@ -327,6 +327,7 @@ export def Render(): string
             '%#BufTabLineFill#'
     endif
 enddef
+
 
 # Update tabline display
 export def Update(zombie: number)
