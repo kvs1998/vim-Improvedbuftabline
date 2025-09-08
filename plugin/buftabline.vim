@@ -3,6 +3,7 @@ vim9script
 # plugin/buftabline.vim
 # Main plugin file - minimal initialization
 
+import '../autoload/buftabline.vim'
 
 if v:version < 900
     echoerr printf('Vim 9 is required for buftabline vim9 version (this is only %d.%d)', v:version / 100, v:version % 100)
@@ -43,11 +44,11 @@ SetupHighlights()
 # Setup autocommands
 augroup BufTabLine
     autocmd!
-    autocmd VimEnter  * g:buftabline#Update(0)
-    autocmd TabEnter  * g:buftabline#Update(0)
-    autocmd BufAdd    * g:buftabline#Update(0)
-    autocmd FileType qf g:buftabline#Update(0)
-    autocmd BufDelete * g:buftabline#Update(str2nr(expand('<abuf>')))
+    autocmd VimEnter  * buftabline.Update(0)
+    autocmd TabEnter  * buftabline.Update(0)
+    autocmd BufAdd    * buftabline.Update(0)
+    autocmd FileType qf buftabline.Update(0)
+    autocmd BufDelete * buftabline.Update(str2nr(expand('<abuf>')))
     autocmd ColorScheme * SetupHighlights()
 augroup END
 
@@ -60,14 +61,14 @@ def CreatePlugMappings()
 
     for n in plug_range
         var b = n == -1 ? -1 : n - 1
-        execute printf("noremap <silent> <Plug>BufTabLine.Go(%d) :<C-U>exe 'b'.get(g:buftabline#UserBuffers(),%d,'')<cr>", n, b)
+        execute printf("noremap <silent> <Plug>BufTabLine.Go(%d) :<C-U>exe 'b'.get(buftabline.UserBuffers(),%d,'')<cr>", n, b)
     endfor
 enddef
 
 CreatePlugMappings()
 
 # User commands
-command! -nargs=0 BufTabLineRefresh call g:buftabline#Update(0)
+command! -nargs=0 BufTabLineRefresh call buftabline.Update(0)
 command! -nargs=0 BufTabLineToggleNumbers let g:buftabline_numbers = (g:buftabline_numbers + 1) % 3 | BufTabLineRefresh
 command! -nargs=0 BufTabLineToggleIndicators let g:buftabline_indicators = !g:buftabline_indicators | BufTabLineRefresh
 
