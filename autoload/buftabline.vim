@@ -76,7 +76,12 @@ export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
     
     # Find which tab this buffer is in
     for t in range(1, tabpagenr('$'))
-        for w in gettabinfo(t)[0].windows
+        var tabinfo = gettabinfo(t)
+        if empty(tabinfo)
+            continue
+        endif
+        
+        for w in tabinfo[0].windows
             if winbufnr(w) == bufnum
                 result.tab_num = t
                 break
@@ -295,10 +300,16 @@ export def Render(): string
         
         # Create the prefix with tab indicator and/or buffer number
         var combined_pre = ''
-        if show_tab_ind && tab.tab_num > 0
-            # Highlight tab number with different color based on current tab
-            var tab_hilite = tab.tab_num == current_tab ? 'CurrentTab' : 'OtherTab'
-            combined_pre = '%#BufTabLine' .. tab_hilite .. '#T' .. tab.tab_num .. ' %#BufTabLineFill#'
+        if show_tab_ind
+            # If this buffer is in a specific tab, show the tab number
+            if tab.tab_num > 0
+                # Highlight tab number with different color based on current tab
+                var tab_hilite = tab.tab_num == current_tab ? 'CurrentTab' : 'OtherTab'
+                combined_pre = '%#BufTabLine' .. tab_hilite .. '#T' .. tab.tab_num .. ' %#BufTabLineFill#'
+            else
+                # For buffers not in a window, use the current tab indicator
+                combined_pre = '%#BufTabLineOtherTab#T? %#BufTabLineFill#'
+            endif
         endif
         if strlen(label_info.pre) > 0
             combined_pre = combined_pre .. label_info.pre
