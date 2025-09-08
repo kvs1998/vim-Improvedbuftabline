@@ -1,7 +1,7 @@
+vim9script
+
 # autoload/buftabline.vim
 # Core functionality - loaded on demand
-
-vim9script
 
 # Script-local variables
 var dirsep = fnamemodify(getcwd(), ':p')[-1]
