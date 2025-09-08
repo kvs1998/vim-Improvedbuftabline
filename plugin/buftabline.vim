@@ -3,11 +3,6 @@ vim9script
 # plugin/buftabline.vim
 # Main plugin file - minimal initialization
 
-import '../autoload/buftabline.vim'
-
-
-
-# Check for Vim9 script and version
 if !has('vim9script') || v:version < 900
     echoerr printf('Vim 9 is required for buftabline vim9 version (this is only %d.%d)', v:version / 100, v:version % 100)
     finish
@@ -19,6 +14,8 @@ if get(g:, 'loaded_buftabline', 0)
 endif
 g:loaded_buftabline = 1
 
+# Import autoload functions
+import autoload '../autoload/buftabline.vim'
 
 # Configuration variables with defaults
 g:buftabline_numbers = get(g:, 'buftabline_numbers', 0)
@@ -26,7 +23,7 @@ g:buftabline_indicators = get(g:, 'buftabline_indicators', 0)
 g:buftabline_separators = get(g:, 'buftabline_separators', 0)
 g:buftabline_show = get(g:, 'buftabline_show', 2)
 g:buftabline_plug_max = get(g:, 'buftabline_plug_max', 10)
-g:buftabline_tab_indicators = get(g:, 'buftabline_tab_indicators', 0) # NEW: Toggle T1, T2 indicators
+g:buftabline_tab_indicators = get(g:, 'buftabline_tab_indicators', 0)
 
 # Setup highlight groups
 def SetupHighlights()
@@ -43,7 +40,6 @@ enddef
 SetupHighlights()
 
 # Global wrapper functions for backward compatibility / external API
-# These allow calling buftabline.Function via g:BufTabLineFunction
 def g:BufTabLineUserBuffers(): list<number>
     return buftabline.UserBuffers()
 enddef
@@ -63,17 +59,17 @@ enddef
 # Setup autocommands
 augroup BufTabLine
     au!
-    autocmd VimEnter  * call g:BufTabLineUpdate(0)
-    autocmd TabEnter  * call g:BufTabLineUpdate(0)
-    autocmd TabNew    * call g:BufTabLineUpdate(0) # Added for new tabs
-    autocmd TabClosed * call g:BufTabLineUpdate(0) # Added for closing tabs
-    autocmd BufAdd    * call g:BufTabLineUpdate(0)
-    autocmd FileType qf call g:BufTabLineUpdate(0)
-    autocmd BufDelete * call g:BufTabLineUpdate(expand('<abuf>')->str2nr())
-    autocmd BufWinEnter * call g:BufTabLineUpdate(0) # Re-evaluate buffers in current tabpage
-    autocmd WinEnter  * call g:BufTabLineUpdate(0) # Trigger on window changes too
-    autocmd WinLeave  * call g:BufTabLineUpdate(0) # Trigger on window changes too
-    autocmd ColorScheme * call SetupHighlights()
+    autocmd VimEnter      * call g:BufTabLineUpdate(0)
+    autocmd TabEnter      * call g:BufTabLineUpdate(0)
+    autocmd TabNew        * call g:BufTabLineUpdate(0)
+    autocmd TabClosed     * call g:BufTabLineUpdate(0)
+    autocmd BufAdd        * call g:BufTabLineUpdate(0)
+    autocmd FileType qf   call g:BufTabLineUpdate(0)
+    autocmd BufDelete     * call g:BufTabLineUpdate(expand('<abuf>')->str2nr())
+    autocmd BufWinEnter   * call g:BufTabLineUpdate(0)
+    autocmd WinEnter      * call g:BufTabLineUpdate(0)
+    autocmd WinLeave      * call g:BufTabLineUpdate(0)
+    autocmd ColorScheme   * call SetupHighlights()
 augroup END
 
 # Create plug mappings
@@ -85,8 +81,7 @@ def CreatePlugMappings()
 
     for n in plug_range
         var b = n == -1 ? -1 : n - 1
-        # Call the global wrapper for UserBuffers
-        execute printf("noremap <silent> <Plug>BufTabLine.Go(%d) :<C-U>exe 'b'.get(g:BufTabLineUserBuffers(),%d,'')<cr>", n, b)
+        execute printf("noremap <silent> <Plug>BufTabLine.Go(%d) :<C-U>exe 'b '.get(g:BufTabLineUserBuffers(),%d,'')<CR>", n, b)
     endfor
 enddef
 
@@ -96,4 +91,4 @@ CreatePlugMappings()
 command! -nargs=0 BufTabLineRefresh call g:BufTabLineUpdate(0)
 command! -nargs=0 BufTabLineToggleNumbers g:buftabline_numbers = (g:buftabline_numbers + 1) % 3 | BufTabLineRefresh
 command! -nargs=0 BufTabLineToggleIndicators g:buftabline_indicators = !g:buftabline_indicators | BufTabLineRefresh
-command! -nargs=0 BufTabLineToggleTabIndicators g:buftabline_tab_indicators = !g:buftabline_tab_indicators | BufTabLineRefresh # NEW Command
+command! -nargs=0 BufTabLineToggleTabIndicators g:buftabline_tab_indicators = !g:buftabline_tab_indicators | BufTabLineRefresh
