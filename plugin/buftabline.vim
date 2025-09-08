@@ -34,7 +34,10 @@ def SetupHighlights()
     hi default link BufTabLineModifiedCurrent BufTabLineCurrent
     hi default link BufTabLineModifiedActive  BufTabLineActive
     hi default link BufTabLineModifiedHidden  BufTabLineHidden
+    hi default link BufTabLineCurrentTab      Directory  # Highlight current tab indicator
+    hi default link BufTabLineOtherTab        Comment    # Highlight other tab indicators
 enddef
+
 
 # Initialize highlights
 SetupHighlights()

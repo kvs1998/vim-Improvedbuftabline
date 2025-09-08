@@ -3,39 +3,29 @@ vim9script
 # autoload/buftabline.vim
 # Core functionality - loaded on demand
 
+
 # Script-local variables
 var dirsep = fnamemodify(getcwd(), ':p')[-1]
 var centerbuf = winbufnr(0)
 var tablineat = has('tablineat')
 var sid = expand('<SID>')
 
-# Public function to get user buffers for the CURRENT NATIVE TAB PAGE
+# Public function to get user buffers for ALL tab pages
 export def UserBuffers(): list<number>
-    var buffers_in_current_tab = []
-    var current_tab = tabpagenr()
-    var current_tab_windows = gettabinfo(current_tab)[0].windows
-
-    # First collect all buffers in current tab
-    for winid in current_tab_windows
-        var buf = winbufnr(winid)
-        if buflisted(buf) && getbufvar(buf, "&buftype") !=? "quickfix"
-            add(buffers_in_current_tab, buf)
-        endif
-    endfor
+    var all_buffers = []
     
-    # Also add any listed buffers that aren't quickfix but might not be in a window
+    # Get all listed buffers that aren't quickfix
     for buf in range(1, bufnr('$'))
         if buflisted(buf) && getbufvar(buf, "&buftype") !=? "quickfix"
-            if index(buffers_in_current_tab, buf) == -1
-                add(buffers_in_current_tab, buf)
-            endif
+            add(all_buffers, buf)
         endif
     endfor
     
-    return uniq(buffers_in_current_tab)
+    return uniq(all_buffers)
 enddef
 
 # Buffer switching function for mouse support
+# We'll modify this to not change the tabline order
 export def SwitchBuffer(bufnum: number, clicks: number, button: string, mod: string)
     var found_winid = -1
     var found_tabpage = -1
@@ -56,23 +46,26 @@ export def SwitchBuffer(bufnum: number, clicks: number, button: string, mod: str
     endfor
 
     if found_winid != -1
+        # If found, jump to that tabpage first, then to the window
         if found_tabpage != current_tab
             execute 'tabnext ' .. found_tabpage
         endif
-        execute found_winid .. 'wincmd w'
+        execute found_winid .. 'wincmd w'  # Jump to the window within its tabpage
     else
+        # If not found, open it in the current window
         execute 'buffer ' .. bufnum
     endif
 enddef
 
-# Get buffer label
+# Get buffer label - modified to include tab number
 export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
     var result = {
         label: '',
         path: '',
         sep: 0,
         modified: false,
-        pre: ''
+        pre: '',
+        tab_num: 0  # Track which tab this buffer is in
     }
 
     var bufpath = bufname(bufnum)
@@ -80,21 +73,34 @@ export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
     var show_ord = g:buftabline_numbers == 2
     var show_mod = g:buftabline_indicators
     var is_modified = getbufvar(bufnum, '&mod')
+    
+    # Find which tab this buffer is in
+    for t in range(1, tabpagenr('$'))
+        for w in gettabinfo(t)[0].windows
+            if winbufnr(w) == bufnum
+                result.tab_num = t
+                break
+            endif
+        endfor
+        if result.tab_num > 0
+            break
+        endif
+    endfor
 
-    # Step 1: Determine 'pre' (buffer/ordinal number)
+    # Determine 'pre' (buffer/ordinal number)
     if show_num
         result.pre = string(bufnum) .. ' '
     elseif show_ord
         result.pre = string(screen_num) .. ' '
     endif
 
-    # Step 2: Determine the indicator text
+    # Determine the indicator text
     var indicator_text = ''
     if show_mod
         indicator_text = is_modified ? '+' : '-'
     endif
 
-    # Step 3: Construct the main 'label' without tab indicators (added later)
+    # Construct the main 'label' without tab indicators (added later)
     if strlen(bufpath) > 0
         # Named file
         result.path = fnamemodify(bufpath, ':p:~:.')
@@ -125,7 +131,6 @@ export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
 
     return result
 enddef
-
 
 # Disambiguate files with same basename
 export def DisambiguateTabs(tabs: list<dict<any>>)
@@ -243,106 +248,103 @@ export def FitTabsToColumns(tabs: list<dict<any>>, layout: dict<any>)
     endfor
 enddef
 
+# Main render function - modified to better handle tab indicators
+export def Render(): string
+    var show_num = g:buftabline_numbers == 1
+    var show_ord = g:buftabline_numbers == 2
+    var show_tab_ind = g:buftabline_tab_indicators
+    var current_tab = tabpagenr()
+    var lpad = g:buftabline_separators ? nr2char(0x23B8) : ' '
 
-# Main render function
+    var bufnums = UserBuffers()
+    var currentbuf = winbufnr(0)
+    centerbuf = currentbuf  # Always center on the current buffer
 
-	export def Render(): string
-	    var show_num = g:buftabline_numbers == 1
-	    var show_ord = g:buftabline_numbers == 2
-	    var show_tab_ind = g:buftabline_tab_indicators
-	    var current_tab = tabpagenr()
-	    var lpad = g:buftabline_separators ? nr2char(0x23B8) : ' '
-	
-	    var bufnums = UserBuffers()
-	    var currentbuf = winbufnr(0)
-	    centerbuf = centerbuf  # prevent tabline jumping around when non-user buffer current
-	
-	    # Early return if no buffers to display
-	    if empty(bufnums)
-	        return '%#BufTabLineFill#' 
-	    endif
-	
-	    var tabs = []
-	    var screen_num = 0
-	
-	    # Build tab data
-	    for bufnum in bufnums
-	        screen_num = show_ord ? screen_num + 1 : 0
-	
-	        var tab = {
-	            num: bufnum,
-	            pre: '',
-	            hilite: '',
-	            path: '',
-	            sep: 0,
-	            label: '',
-	            width: 0
-	        }
-	
-	        # Determine highlight group
-	        tab.hilite = currentbuf == bufnum ? 'Current' :
-	                    bufwinnr(bufnum) > 0 ? 'Active' : 'Hidden'
-	
-	        if currentbuf == bufnum
-	            centerbuf = bufnum
-	        endif
-	
-	        # Get buffer label info
-	        var label_info = GetBufferLabel(bufnum, show_num ? bufnum : show_ord ? screen_num : 0)
-	        tab.path = label_info.path
-	        tab.sep = label_info.sep
-	        
-	        # Create the prefix with tab indicator and/or buffer number
-	        var combined_pre = ''
-	        if show_tab_ind
-	            combined_pre = 'T' .. current_tab .. ' '
-	        endif
-	        if strlen(label_info.pre) > 0
-	            combined_pre = combined_pre .. label_info.pre
-	        endif
-	        tab.pre = combined_pre
-	
-	        # Set label
-	        tab.label = label_info.label
-	
-	        if label_info.modified && strlen(tab.path) > 0
-	            tab.hilite = 'Modified' .. tab.hilite
-	        endif
-	
-	        add(tabs, tab)
-	    endfor
-	
-	    # Disambiguate same-name files
-	    DisambiguateTabs(tabs)
-	
-	    # Calculate layout and format labels
-	    var layout = CalculateTabLayout(tabs, currentbuf)
-	
-	    # Fit tabs to available space
-	    FitTabsToColumns(tabs, layout)
-	
-	    # Clean up first tab padding
-	    if len(tabs) > 0
-	        tabs[0].label = substitute(tabs[0].label, lpad, ' ', '')
-	    endif
-	
-	    # Generate tabline string
-	    var swallowclicks = '%' .. (1 + tabpagenr('$')) .. 'X'
-	
-	    if tablineat
-	        return join(mapnew(tabs, (_, tab) =>
-	            '%#BufTabLine' .. tab.hilite .. '#' ..
-	            '%' .. tab.num .. '@' .. sid .. 'g:BufTabLineSwitchBuffer@' ..
-	            strtrans(tab.label)), '') ..
-	            '%#BufTabLineFill#' .. swallowclicks
-	    else
-	        return swallowclicks ..
-	            join(mapnew(tabs, (_, tab) =>
-	                '%#BufTabLine' .. tab.hilite .. '#' .. strtrans(tab.label)), '') ..
-	            '%#BufTabLineFill#'
-	    endif
+    # Early return if no buffers to display
+    if empty(bufnums)
+        return '%#BufTabLineFill#' 
+    endif
+
+    var tabs = []
+    var screen_num = 0
+
+    # Build tab data
+    for bufnum in bufnums
+        screen_num = show_ord ? screen_num + 1 : 0
+
+        var tab = {
+            num: bufnum,
+            pre: '',
+            hilite: '',
+            path: '',
+            sep: 0,
+            label: '',
+            width: 0,
+            tab_num: 0  # Store which tab this buffer is in
+        }
+
+        # Determine highlight group
+        tab.hilite = currentbuf == bufnum ? 'Current' :
+                    bufwinnr(bufnum) > 0 ? 'Active' : 'Hidden'
+
+        # Get buffer label info
+        var label_info = GetBufferLabel(bufnum, show_num ? bufnum : show_ord ? screen_num : 0)
+        tab.path = label_info.path
+        tab.sep = label_info.sep
+        tab.tab_num = label_info.tab_num  # Store tab number
+        
+        # Create the prefix with tab indicator and/or buffer number
+        var combined_pre = ''
+        if show_tab_ind && tab.tab_num > 0
+            # Highlight tab number with different color based on current tab
+            var tab_hilite = tab.tab_num == current_tab ? 'CurrentTab' : 'OtherTab'
+            combined_pre = '%#BufTabLine' .. tab_hilite .. '#T' .. tab.tab_num .. ' %#BufTabLineFill#'
+        endif
+        if strlen(label_info.pre) > 0
+            combined_pre = combined_pre .. label_info.pre
+        endif
+        tab.pre = combined_pre
+
+        # Set label
+        tab.label = label_info.label
+
+        if label_info.modified && strlen(tab.path) > 0
+            tab.hilite = 'Modified' .. tab.hilite
+        endif
+
+        add(tabs, tab)
+    endfor
+
+    # Disambiguate same-name files
+    DisambiguateTabs(tabs)
+
+    # Calculate layout and format labels
+    var layout = CalculateTabLayout(tabs, currentbuf)
+
+    # Fit tabs to available space
+    FitTabsToColumns(tabs, layout)
+
+    # Clean up first tab padding
+    if len(tabs) > 0
+        tabs[0].label = substitute(tabs[0].label, lpad, ' ', '')
+    endif
+
+    # Generate tabline string
+    var swallowclicks = '%' .. (1 + tabpagenr('$')) .. 'X'
+
+    if tablineat
+        return join(mapnew(tabs, (_, tab) =>
+            '%#BufTabLine' .. tab.hilite .. '#' ..
+            '%' .. tab.num .. '@' .. sid .. 'g:BufTabLineSwitchBuffer@' ..
+            tab.pre .. strtrans(tab.label)), '') ..
+            '%#BufTabLineFill#' .. swallowclicks
+    else
+        return swallowclicks ..
+            join(mapnew(tabs, (_, tab) =>
+                '%#BufTabLine' .. tab.hilite .. '#' .. tab.pre .. strtrans(tab.label)), '') ..
+            '%#BufTabLineFill#'
+    endif
 enddef
-
 
 # Update tabline display
 export def Update(zombie: number)
@@ -358,7 +360,7 @@ export def Update(zombie: number)
         var bufnums_in_current_tab = UserBuffers()
         &showtabline = 1 + (len(bufnums_in_current_tab) > 1 || has_native_tabs ? 1 : 0)
         set guioptions+=e
-    else # g:buftabline_show == 2
+    else  # g:buftabline_show == 2
         set showtabline=2
         if has_native_tabs
             set guioptions+=e
