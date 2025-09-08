@@ -12,7 +12,7 @@ if v:version < 900
 endif
 
 # Prevent duplicate loading
-if exists('g:loaded_buftabline')
+if get(g:, 'loaded_buftabline', 0)
     finish
 endif
 g:loaded_buftabline = 1
@@ -83,8 +83,9 @@ CreatePlugMappings()
 
 # User commands
 command! -nargs=0 BufTabLineRefresh call g:BufTabLineUpdate(0)
-command! -nargs=0 BufTabLineToggleNumbers let g:buftabline_numbers = (g:buftabline_numbers + 1) % 3 | BufTabLineRefresh
-command! -nargs=0 BufTabLineToggleIndicators let g:buftabline_indicators = !g:buftabline_indicators | BufTabLineRefresh
+command! -nargs=0 BufTabLineToggleNumbers g:buftabline_numbers = (g:buftabline_numbers + 1) % 3 | BufTabLineRefresh
+command! -nargs=0 BufTabLineToggleIndicators g:buftabline_indicators = !g:buftabline_indicators | BufTabLineRefresh
 
-# Restore compatibility options
-&cpo = save_cpo
+
+# This will be set by buftabline.Update anyway, but good to have a default
+set tabline=%!g:BufTabLineRender()
