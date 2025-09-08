@@ -11,17 +11,37 @@ var tablineat = has('tablineat')
 var sid = expand('<SID>')
 
 # Public function to get user buffers for ALL tab pages
-export def UserBuffers(): list<number>
-    var all_buffers = []
+export def UserBuffers(): list<dict<number>>
+    var result = []
     
     # Get all listed buffers that aren't quickfix
     for buf in range(1, bufnr('$'))
         if buflisted(buf) && getbufvar(buf, "&buftype") !=? "quickfix"
-            add(all_buffers, buf)
+            var buf_dict = {bufnum: buf, tab_num: 0}
+            
+            # Find which tab this buffer is in
+            for t in range(1, tabpagenr('$'))
+                var tabinfo = gettabinfo(t)
+                if empty(tabinfo)
+                    continue
+                endif
+                
+                for w in tabinfo[0].windows
+                    if winbufnr(w) == buf
+                        buf_dict.tab_num = t
+                        break
+                    endif
+                endfor
+                if buf_dict.tab_num > 0
+                    break
+                endif
+            endfor
+            
+            add(result, buf_dict)
         endif
     endfor
     
-    return uniq(all_buffers)
+    return result
 enddef
 
 
@@ -65,8 +85,7 @@ export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
         path: '',
         sep: 0,
         modified: false,
-        pre: '',
-        tab_num: 0  # Track which tab this buffer is in
+        pre: ''
     }
 
     var bufpath = bufname(bufnum)
@@ -74,24 +93,6 @@ export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
     var show_ord = g:buftabline_numbers == 2
     var show_mod = g:buftabline_indicators
     var is_modified = getbufvar(bufnum, '&mod')
-    
-    # Find which tab this buffer is in
-    for t in range(1, tabpagenr('$'))
-        var tabinfo = gettabinfo(t)
-        if empty(tabinfo)
-            continue
-        endif
-        
-        for w in tabinfo[0].windows
-            if winbufnr(w) == bufnum
-                result.tab_num = t
-                break
-            endif
-        endfor
-        if result.tab_num > 0
-            break
-        endif
-    endfor
 
     # Determine 'pre' (buffer/ordinal number)
     if show_num
@@ -106,7 +107,7 @@ export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
         indicator_text = is_modified ? '+' : '-'
     endif
 
-    # Construct the main 'label' without tab indicators (added later)
+    # Construct the main 'label' (without tab indicators)
     if strlen(bufpath) > 0
         # Named file
         result.path = fnamemodify(bufpath, ':p:~:.')
@@ -116,7 +117,6 @@ export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
 
         var mod_prefix = strlen(indicator_text) ? '[' .. indicator_text .. '] ' : ''
         result.label = mod_prefix .. basename
-
     elseif index(['nofile', 'acwrite'], getbufvar(bufnum, '&buftype')) >= 0
         # Scratch buffer
         result.modified = is_modified
@@ -125,7 +125,6 @@ export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
         var specific_indicator = is_modified ? '!' : indicator_text
         var mod_prefix = strlen(indicator_text) ? '[' .. specific_indicator .. '] ' : ''
         result.label = mod_prefix .. scratch_display_name
-
     else
         # Unnamed file
         result.modified = is_modified
@@ -137,6 +136,7 @@ export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
 
     return result
 enddef
+
 
 # Disambiguate files with same basename
 export def DisambiguateTabs(tabs: list<dict<any>>)
@@ -259,23 +259,25 @@ export def Render(): string
     var show_num = g:buftabline_numbers == 1
     var show_ord = g:buftabline_numbers == 2
     var show_tab_ind = g:buftabline_tab_indicators
-    var current_tab = tabpagenr()  # Get current tab number once
+    var current_tab = tabpagenr()  # Current tab number (1-based)
     var lpad = g:buftabline_separators ? nr2char(0x23B8) : ' '
 
-    var bufnums = UserBuffers()
+    var buffer_dicts = UserBuffers()  # Get all buffers with their tab numbers
     var currentbuf = winbufnr(0)
     centerbuf = currentbuf  # Always center on the current buffer
 
     # Early return if no buffers to display
-    if empty(bufnums)
+    if empty(buffer_dicts)
         return '%#BufTabLineFill#' 
     endif
 
     var tabs = []
     var screen_num = 0
 
-    # Build tab data
-    for bufnum in bufnums
+    # Build tab data for each buffer
+    for buf_dict in buffer_dicts
+        var bufnum = buf_dict.bufnum
+        var buf_tab_num = buf_dict.tab_num
         screen_num = show_ord ? screen_num + 1 : 0
 
         var tab = {
@@ -285,7 +287,8 @@ export def Render(): string
             path: '',
             sep: 0,
             label: '',
-            width: 0
+            width: 0,
+            tab_num: buf_tab_num  # Store the tab number this buffer belongs to
         }
 
         # Determine highlight group
@@ -297,16 +300,24 @@ export def Render(): string
         tab.path = label_info.path
         tab.sep = label_info.sep
         
-        # Create the prefix with tab indicator and/or buffer number
+        # Create the prefix
         var combined_pre = ''
+        
+        # Add tab indicator if enabled
         if show_tab_ind
-            # Always show current tab number, consistent for all buffers in this tab
-            # This is the key fix - use current_tab directly, not an incrementing value
-            combined_pre = '%#BufTabLineCurrentTab#T' .. current_tab .. ' %#BufTabLineFill#'
+            var tab_hilite = buf_tab_num == current_tab ? 'CurrentTab' : 'OtherTab'
+            if buf_tab_num > 0  # If buffer is in a tab
+                combined_pre = '%#BufTabLine' .. tab_hilite .. '#T' .. buf_tab_num .. ' %#BufTabLineFill#'
+            else  # If buffer isn't in any tab window
+                combined_pre = '%#BufTabLineOtherTab#T? %#BufTabLineFill#'
+            endif
         endif
+        
+        # Add buffer number/ordinal if enabled
         if strlen(label_info.pre) > 0
             combined_pre = combined_pre .. label_info.pre
         endif
+        
         tab.pre = combined_pre
 
         # Set label
@@ -334,7 +345,7 @@ export def Render(): string
     endif
 
     # Generate tabline string
-    var swallowclicks = '%' .. (tabpagenr('$')) .. 'X'
+    var swallowclicks = '%' .. (1 + tabpagenr('$')) .. 'X'
 
     if tablineat
         return join(mapnew(tabs, (_, tab) =>
@@ -349,7 +360,6 @@ export def Render(): string
             '%#BufTabLineFill#'
     endif
 enddef
-
 
 # Update tabline display
 export def Update(zombie: number)
