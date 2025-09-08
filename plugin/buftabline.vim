@@ -5,6 +5,7 @@ vim9script
 
 import '../autoload/buftabline.vim'
 
+
 if v:version < 900
     echoerr printf('Vim 9 is required for buftabline vim9 version (this is only %d.%d)', v:version / 100, v:version % 100)
     finish
@@ -41,15 +42,28 @@ enddef
 # Initialize highlights
 SetupHighlights()
 
+# Global wrapper functions for backward compatibility
+def g:BufTabLineUserBuffers(): list<number>
+    return buftabline.UserBuffers()
+enddef
+
+def g:BufTabLineRender(): string
+    return buftabline.Render()
+enddef
+
+def g:BufTabLineUpdate(zombie: number)
+    buftabline.Update(zombie)
+enddef
+
 # Setup autocommands
 augroup BufTabLine
     autocmd!
-    autocmd VimEnter  * buftabline.Update(0)
-    autocmd TabEnter  * buftabline.Update(0)
-    autocmd BufAdd    * buftabline.Update(0)
-    autocmd FileType qf buftabline.Update(0)
-    autocmd BufDelete * buftabline.Update(str2nr(expand('<abuf>')))
-    autocmd ColorScheme * SetupHighlights()
+    autocmd VimEnter  * call g:BufTabLineUpdate(0)
+    autocmd TabEnter  * call g:BufTabLineUpdate(0)
+    autocmd BufAdd    * call g:BufTabLineUpdate(0)
+    autocmd FileType qf call g:BufTabLineUpdate(0)
+    autocmd BufDelete * call g:BufTabLineUpdate(str2nr(expand('<abuf>')))
+    autocmd ColorScheme * call SetupHighlights()
 augroup END
 
 # Create plug mappings
@@ -61,14 +75,14 @@ def CreatePlugMappings()
 
     for n in plug_range
         var b = n == -1 ? -1 : n - 1
-        execute printf("noremap <silent> <Plug>BufTabLine.Go(%d) :<C-U>exe 'b'.get(buftabline.UserBuffers(),%d,'')<cr>", n, b)
+        execute printf("noremap <silent> <Plug>BufTabLine.Go(%d) :<C-U>exe 'b'.get(g:BufTabLineUserBuffers(),%d,'')<cr>", n, b)
     endfor
 enddef
 
 CreatePlugMappings()
 
 # User commands
-command! -nargs=0 BufTabLineRefresh call buftabline.Update(0)
+command! -nargs=0 BufTabLineRefresh call g:BufTabLineUpdate(0)
 command! -nargs=0 BufTabLineToggleNumbers let g:buftabline_numbers = (g:buftabline_numbers + 1) % 3 | BufTabLineRefresh
 command! -nargs=0 BufTabLineToggleIndicators let g:buftabline_indicators = !g:buftabline_indicators | BufTabLineRefresh
 
