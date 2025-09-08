@@ -59,84 +59,83 @@ export def SwitchBuffer(bufnum: number, clicks: number, button: string, mod: str
 enddef
 
 # Get buffer label - modified to include tab number
+export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
+    var result = {
+        label: '',
+        path: '',
+        sep: 0,
+        modified: false,
+        pre: '',
+        tab_num: 0  # Track which tab this buffer is in
+    }
 
-	export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
-	    var result = {
-	        label: '',
-	        path: '',
-	        sep: 0,
-	        modified: false,
-	        pre: '',
-	        tab_num: 0  # Track which tab this buffer is in
-	    }
-	
-	    var bufpath = bufname(bufnum)
-	    var show_num = g:buftabline_numbers == 1
-	    var show_ord = g:buftabline_numbers == 2
-	    var show_mod = g:buftabline_indicators
-	    var is_modified = getbufvar(bufnum, '&mod')
-	    
-	    # Find which tab this buffer is in
-	    for t in range(1, tabpagenr('$'))
-	        var tabinfo = gettabinfo(t)
-	        if empty(tabinfo)
-	            continue
-	        endif
-	        
-	        for w in tabinfo[0].windows
-	            if winbufnr(w) == bufnum
-	                result.tab_num = t
-	                break
-	            endif
-	        endfor
-	        if result.tab_num > 0
-	            break
-	        endif
-	    endfor
-	
-	    # Determine 'pre' (buffer/ordinal number)
-	    if show_num
-	        result.pre = string(bufnum) .. ' '
-	    elseif show_ord
-	        result.pre = string(screen_num) .. ' '
-	    endif
-	
-	    # Determine the indicator text
-	    var indicator_text = ''
-	    if show_mod
-	        indicator_text = is_modified ? '+' : '-'
-	    endif
-	
-	    # Construct the main 'label' without tab indicators (added later)
-	    if strlen(bufpath) > 0
-	        # Named file
-	        result.path = fnamemodify(bufpath, ':p:~:.')
-	        result.sep = strridx(result.path, dirsep, strlen(result.path) - 2)
-	        var basename = result.path[result.sep + 1 :]
-	        result.modified = is_modified
-	
-	        var mod_prefix = strlen(indicator_text) ? '[' .. indicator_text .. '] ' : ''
-	        result.label = mod_prefix .. basename
-	
-	    elseif index(['nofile', 'acwrite'], getbufvar(bufnum, '&buftype')) >= 0
-	        # Scratch buffer
-	        result.modified = is_modified
-	        var scratch_display_name = 'scratch'
-	        
-	        var specific_indicator = is_modified ? '!' : indicator_text
-	        var mod_prefix = strlen(indicator_text) ? '[' .. specific_indicator .. '] ' : ''
-	        result.label = mod_prefix .. scratch_display_name
-	
-	    else
-	        # Unnamed file
-	        result.modified = is_modified
-	        var unnamed_display_name = '*'
-	
-	        var mod_prefix = strlen(indicator_text) ? '[' .. indicator_text .. '] ' : ''
-	        result.label = mod_prefix .. unnamed_display_name
-	    endif
-	
-	    return result
+    var bufpath = bufname(bufnum)
+    var show_num = g:buftabline_numbers == 1
+    var show_ord = g:buftabline_numbers == 2
+    var show_mod = g:buftabline_indicators
+    var is_modified = getbufvar(bufnum, '&mod')
+    
+    # Find which tab this buffer is in
+    for t in range(1, tabpagenr('$'))
+        var tabinfo = gettabinfo(t)
+        if empty(tabinfo)
+            continue
+        endif
+        
+        for w in tabinfo[0].windows
+            if winbufnr(w) == bufnum
+                result.tab_num = t
+                break
+            endif
+        endfor
+        if result.tab_num > 0
+            break
+        endif
+    endfor
+
+    # Determine 'pre' (buffer/ordinal number)
+    if show_num
+        result.pre = string(bufnum) .. ' '
+    elseif show_ord
+        result.pre = string(screen_num) .. ' '
+    endif
+
+    # Determine the indicator text
+    var indicator_text = ''
+    if show_mod
+        indicator_text = is_modified ? '+' : '-'
+    endif
+
+    # Construct the main 'label' without tab indicators (added later)
+    if strlen(bufpath) > 0
+        # Named file
+        result.path = fnamemodify(bufpath, ':p:~:.')
+        result.sep = strridx(result.path, dirsep, strlen(result.path) - 2)
+        var basename = result.path[result.sep + 1 :]
+        result.modified = is_modified
+
+        var mod_prefix = strlen(indicator_text) ? '[' .. indicator_text .. '] ' : ''
+        result.label = mod_prefix .. basename
+
+    elseif index(['nofile', 'acwrite'], getbufvar(bufnum, '&buftype')) >= 0
+        # Scratch buffer
+        result.modified = is_modified
+        var scratch_display_name = 'scratch'
+        
+        var specific_indicator = is_modified ? '!' : indicator_text
+        var mod_prefix = strlen(indicator_text) ? '[' .. specific_indicator .. '] ' : ''
+        result.label = mod_prefix .. scratch_display_name
+
+    else
+        # Unnamed file
+        result.modified = is_modified
+        var unnamed_display_name = '*'
+
+        var mod_prefix = strlen(indicator_text) ? '[' .. indicator_text .. '] ' : ''
+        result.label = mod_prefix .. unnamed_display_name
+    endif
+
+    return result
 enddef
 
 # Disambiguate files with same basename
@@ -335,7 +334,7 @@ export def Render(): string
     endif
 
     # Generate tabline string
-    var swallowclicks = '%' .. (1 + tabpagenr('$')) .. 'X'
+    var swallowclicks = '%' .. (tabpagenr('$')) .. 'X'
 
     if tablineat
         return join(mapnew(tabs, (_, tab) =>
