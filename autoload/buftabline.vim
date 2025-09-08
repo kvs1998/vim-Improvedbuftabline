@@ -232,13 +232,14 @@ export def FitTabsToColumns(tabs: list<dict<any>>, layout: dict<any>)
     endfor
 enddef
 
+
 # Main render function
 export def Render(): string
     var show_num = g:buftabline_numbers == 1
     var show_ord = g:buftabline_numbers == 2
     var show_tab_ind = g:buftabline_tab_indicators
     var current_tab = tabpagenr()
-    var lpad = g:buftabline_separators ? nr2Char(0x23B8) : ' '
+    var lpad = g:buftabline_separators ? nr2char(0x23B8) : ' '  # Fixed: nr2char not nr2Char
 
     var bufnums = UserBuffers()
     var currentbuf = winbufnr(0)
