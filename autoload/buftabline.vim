@@ -24,6 +24,7 @@ export def UserBuffers(): list<number>
     return uniq(all_buffers)
 enddef
 
+
 # Buffer switching function for mouse support
 # We'll modify this to not change the tabline order
 export def SwitchBuffer(bufnum: number, clicks: number, button: string, mod: string)
@@ -58,83 +59,84 @@ export def SwitchBuffer(bufnum: number, clicks: number, button: string, mod: str
 enddef
 
 # Get buffer label - modified to include tab number
-export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
-    var result = {
-        label: '',
-        path: '',
-        sep: 0,
-        modified: false,
-        pre: '',
-        tab_num: 0  # Track which tab this buffer is in
-    }
 
-    var bufpath = bufname(bufnum)
-    var show_num = g:buftabline_numbers == 1
-    var show_ord = g:buftabline_numbers == 2
-    var show_mod = g:buftabline_indicators
-    var is_modified = getbufvar(bufnum, '&mod')
-    
-    # Find which tab this buffer is in
-    for t in range(1, tabpagenr('$'))
-        var tabinfo = gettabinfo(t)
-        if empty(tabinfo)
-            continue
-        endif
-        
-        for w in tabinfo[0].windows
-            if winbufnr(w) == bufnum
-                result.tab_num = t
-                break
-            endif
-        endfor
-        if result.tab_num > 0
-            break
-        endif
-    endfor
-
-    # Determine 'pre' (buffer/ordinal number)
-    if show_num
-        result.pre = string(bufnum) .. ' '
-    elseif show_ord
-        result.pre = string(screen_num) .. ' '
-    endif
-
-    # Determine the indicator text
-    var indicator_text = ''
-    if show_mod
-        indicator_text = is_modified ? '+' : '-'
-    endif
-
-    # Construct the main 'label' without tab indicators (added later)
-    if strlen(bufpath) > 0
-        # Named file
-        result.path = fnamemodify(bufpath, ':p:~:.')
-        result.sep = strridx(result.path, dirsep, strlen(result.path) - 2)
-        var basename = result.path[result.sep + 1 :]
-        result.modified = is_modified
-
-        var mod_prefix = strlen(indicator_text) ? '[' .. indicator_text .. '] ' : ''
-        result.label = mod_prefix .. basename
-
-    elseif index(['nofile', 'acwrite'], getbufvar(bufnum, '&buftype')) >= 0
-        # Scratch buffer
-        result.modified = is_modified
-        var scratch_display_name = 'scratch'
-        
-        var specific_indicator = is_modified ? '!' : indicator_text
-        var mod_prefix = strlen(indicator_text) ? '[' .. specific_indicator .. '] ' : ''
-        result.label = mod_prefix .. scratch_display_name
-
-    else
-        # Unnamed file
-        result.modified = is_modified
-        var unnamed_display_name = '*'
-
-        var mod_prefix = strlen(indicator_text) ? '[' .. indicator_text .. '] ' : ''
-        result.label = mod_prefix .. unnamed_display_name
-    endif
-
-    return result
+	export def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
+	    var result = {
+	        label: '',
+	        path: '',
+	        sep: 0,
+	        modified: false,
+	        pre: '',
+	        tab_num: 0  # Track which tab this buffer is in
+	    }
+	
+	    var bufpath = bufname(bufnum)
+	    var show_num = g:buftabline_numbers == 1
+	    var show_ord = g:buftabline_numbers == 2
+	    var show_mod = g:buftabline_indicators
+	    var is_modified = getbufvar(bufnum, '&mod')
+	    
+	    # Find which tab this buffer is in
+	    for t in range(1, tabpagenr('$'))
+	        var tabinfo = gettabinfo(t)
+	        if empty(tabinfo)
+	            continue
+	        endif
+	        
+	        for w in tabinfo[0].windows
+	            if winbufnr(w) == bufnum
+	                result.tab_num = t
+	                break
+	            endif
+	        endfor
+	        if result.tab_num > 0
+	            break
+	        endif
+	    endfor
+	
+	    # Determine 'pre' (buffer/ordinal number)
+	    if show_num
+	        result.pre = string(bufnum) .. ' '
+	    elseif show_ord
+	        result.pre = string(screen_num) .. ' '
+	    endif
+	
+	    # Determine the indicator text
+	    var indicator_text = ''
+	    if show_mod
+	        indicator_text = is_modified ? '+' : '-'
+	    endif
+	
+	    # Construct the main 'label' without tab indicators (added later)
+	    if strlen(bufpath) > 0
+	        # Named file
+	        result.path = fnamemodify(bufpath, ':p:~:.')
+	        result.sep = strridx(result.path, dirsep, strlen(result.path) - 2)
+	        var basename = result.path[result.sep + 1 :]
+	        result.modified = is_modified
+	
+	        var mod_prefix = strlen(indicator_text) ? '[' .. indicator_text .. '] ' : ''
+	        result.label = mod_prefix .. basename
+	
+	    elseif index(['nofile', 'acwrite'], getbufvar(bufnum, '&buftype')) >= 0
+	        # Scratch buffer
+	        result.modified = is_modified
+	        var scratch_display_name = 'scratch'
+	        
+	        var specific_indicator = is_modified ? '!' : indicator_text
+	        var mod_prefix = strlen(indicator_text) ? '[' .. specific_indicator .. '] ' : ''
+	        result.label = mod_prefix .. scratch_display_name
+	
+	    else
+	        # Unnamed file
+	        result.modified = is_modified
+	        var unnamed_display_name = '*'
+	
+	        var mod_prefix = strlen(indicator_text) ? '[' .. indicator_text .. '] ' : ''
+	        result.label = mod_prefix .. unnamed_display_name
+	    endif
+	
+	    return result
 enddef
 
 # Disambiguate files with same basename
@@ -258,7 +260,7 @@ export def Render(): string
     var show_num = g:buftabline_numbers == 1
     var show_ord = g:buftabline_numbers == 2
     var show_tab_ind = g:buftabline_tab_indicators
-    var current_tab = tabpagenr()
+    var current_tab = tabpagenr()  # Get current tab number once
     var lpad = g:buftabline_separators ? nr2char(0x23B8) : ' '
 
     var bufnums = UserBuffers()
@@ -284,8 +286,7 @@ export def Render(): string
             path: '',
             sep: 0,
             label: '',
-            width: 0,
-            tab_num: 0  # Store which tab this buffer is in
+            width: 0
         }
 
         # Determine highlight group
@@ -296,20 +297,13 @@ export def Render(): string
         var label_info = GetBufferLabel(bufnum, show_num ? bufnum : show_ord ? screen_num : 0)
         tab.path = label_info.path
         tab.sep = label_info.sep
-        tab.tab_num = label_info.tab_num  # Store tab number
         
         # Create the prefix with tab indicator and/or buffer number
         var combined_pre = ''
         if show_tab_ind
-            # If this buffer is in a specific tab, show the tab number
-            if tab.tab_num > 0
-                # Highlight tab number with different color based on current tab
-                var tab_hilite = tab.tab_num == current_tab ? 'CurrentTab' : 'OtherTab'
-                combined_pre = '%#BufTabLine' .. tab_hilite .. '#T' .. tab.tab_num .. ' %#BufTabLineFill#'
-            else
-                # For buffers not in a window, use the current tab indicator
-                combined_pre = '%#BufTabLineOtherTab#T? %#BufTabLineFill#'
-            endif
+            # Always show current tab number, consistent for all buffers in this tab
+            # This is the key fix - use current_tab directly, not an incrementing value
+            combined_pre = '%#BufTabLineCurrentTab#T' .. current_tab .. ' %#BufTabLineFill#'
         endif
         if strlen(label_info.pre) > 0
             combined_pre = combined_pre .. label_info.pre
@@ -356,6 +350,7 @@ export def Render(): string
             '%#BufTabLineFill#'
     endif
 enddef
+
 
 # Update tabline display
 export def Update(zombie: number)
