@@ -300,9 +300,22 @@ export def Render(): string
         # Create the prefix with tab indicator and/or buffer number
         var combined_pre = ''
         if show_tab_ind
-            # FIX: Use the actual tab number where this buffer resides
-            var buffer_tab_num = label_info.tab_num > 0 ? label_info.tab_num : current_tab
-            combined_pre = '%#BufTabLineCurrentTab#T' .. buffer_tab_num .. ' %#BufTabLineFill#'
+            # Show which tab the buffer is currently visible in, or just buffer info
+            var visible_in_tab = 0
+            for t in range(1, tabpagenr('$'))
+                for w in gettabinfo(t)[0].windows
+                    if winbufnr(w) == bufnum && t == current_tab
+                        visible_in_tab = t
+                        break
+                    endif
+                endfor
+            endfor
+            
+            if visible_in_tab > 0
+                combined_pre = '%#BufTabLineCurrentTab#[T' .. visible_in_tab .. '] %#BufTabLineFill#'
+            else
+                combined_pre = '%#BufTabLineHidden#[--] %#BufTabLineFill#'
+            endif
         endif
         if strlen(label_info.pre) > 0
             combined_pre = combined_pre .. label_info.pre
