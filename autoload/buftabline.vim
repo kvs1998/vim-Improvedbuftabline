@@ -32,36 +32,74 @@ def GetBufferLabel(bufnum: number, screen_num: number): dict<any>
         modified: false,
         pre: ''
     }
-    
+
     var bufpath = bufname(bufnum)
     var show_num = g:buftabline_numbers == 1
     var show_ord = g:buftabline_numbers == 2
     var show_mod = g:buftabline_indicators
-    
+
     if strlen(bufpath) > 0
         result.path = fnamemodify(bufpath, ':p:~:.')
         result.sep = strridx(result.path, dirsep, strlen(result.path) - 2)
         result.label = result.path[result.sep + 1 : ]
         result.modified = getbufvar(bufnum, '&mod')
-        
-        var pre = show_num || show_ord ? string(screen_num) : ''
+
+        var pre_content = show_num || show_ord ? string(screen_num) : ''
         if result.modified && show_mod
-            pre = '+' .. pre
+            pre_content = '+' .. pre_content
         endif
-        if strlen(pre) > 0
-            result.pre = pre .. ' '
+        if strlen(pre_content) > 0
+            # --- ONLY CHANGE FOR NAMED FILES ---
+            result.pre = '[' .. pre_content .. '] '
+            # --- END CHANGE ---
         endif
     elseif index(['nofile', 'acwrite'], getbufvar(bufnum, '&buftype')) > -1
         # Scratch buffer
         var num_str = show_num || show_ord ? string(screen_num) : ''
-        result.label = show_mod ? '!' .. num_str : (strlen(num_str) > 0 ? num_str .. ' !' : '!')
+        var scratch_label_content = ''
+
+        if show_mod && strlen(num_str) > 0
+            scratch_label_content = '!' .. num_str
+        elseif show_mod && strlen(num_str) == 0
+            scratch_label_content = '!'
+        elseif strlen(num_str) > 0
+            scratch_label_content = num_str
+        endif
+
+        if strlen(scratch_label_content) > 0
+            result.label = '[' .. scratch_label_content .. ']'
+            # Handle cases like "![1]" vs "[]"
+            if result.label == '[!]' && !show_num && !show_ord
+                result.label = '!' # if only modified indicator, no brackets for '!'
+            endif
+            if result.label == '[]'
+                result.label = '!' # if for some reason we get empty brackets, default to '!'
+            endif
+        else
+            result.label = '!' # Default if no number or explicit modified indicator.
+        endif
+
     else
         # Unnamed file
         var mod_indicator = show_mod && getbufvar(bufnum, '&mod') ? '+' : ''
         var num_str = show_num || show_ord ? string(screen_num) : '*'
-        result.label = mod_indicator .. num_str
+        var unnamed_label_content = mod_indicator .. num_str
+
+        if strlen(unnamed_label_content) > 0 && (show_num || show_ord || show_mod)
+            result.label = '[' .. unnamed_label_content .. ']'
+        else
+            result.label = num_str # Fallback for simple '*'
+        endif
+        # Correct for cases like '[]*' if show_mod is off and no number
+        if result.label == '[]*' && (!show_num && !show_ord && !show_mod)
+            result.label = '*'
+        endif
+        # Correct for cases like '[+*]' if g:buftabline_numbers is 0 and modified
+        if result.label == '[*]' && (!show_num && !show_ord) && show_mod && mod_indicator == '+'
+          result.label = '[+]'
+        endif
     endif
-    
+
     return result
 enddef
 
