@@ -1,4 +1,3 @@
-
 vim9script
 
 # autoload/buftabline.vim
@@ -16,6 +15,7 @@ export def UserBuffers(): list<number>
     var buffers_in_current_tab = []
     # Get all windows in the current tab page. gettabinfo(v:tabpagenr) returns a list
     # and the first element is a dictionary with 'windows' key.
+    # v:tabpagenr is a variable, so it's correct as is for the current tab page index.
     var current_tab_windows = gettabinfo(v:tabpagenr)[0].windows
 
     for winid in current_tab_windows
@@ -36,7 +36,7 @@ export def SwitchBuffer(bufnum: number, clicks: number, button: string, mod: str
     var found_tabpage = -1
 
     # Search for the buffer in all windows across all tab pages
-    for t in range(1, tabpagenr('$')) # Corrected: tabpagenr('$')
+    for t in range(1, tabpagenr('$')) # Corrected: tabpagenr()
         for w in gettabinfo(t)[0].windows
             if winbufnr(w) == bufnum
                 found_winid = w
@@ -365,7 +365,7 @@ export def Render(): string
     endif
 
     # Generate tabline string
-    var swallowclicks = '%' .. (1 + tabpagenr('$')) .. 'X' # Corrected: tabpagenr('$')
+    var swallowclicks = '%' .. (1 + tabpagenr('$')) .. 'X' # Corrected: tabpagenr()
 
     if tablineat
         # Use g:BufTabLineSwitchBuffer wrapper for mouse clicks
@@ -386,7 +386,7 @@ enddef
 export def Update(zombie: number)
     set tabline= # Clear to force redraw
 
-    var has_native_tabs = tabpagenr('$') > 1 # Corrected: tabpagenr('$')
+    var has_native_tabs = tabpagenr('$') > 1 # Corrected: tabpagenr()
 
     # Decide how to show tabline based on g:buftabline_show and native tabs
     if g:buftabline_show == 0 # User wants default Vim behavior (minimal custom interference)
