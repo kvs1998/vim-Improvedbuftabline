@@ -255,18 +255,18 @@ export def FitTabsToColumns(tabs: list<dict<any>>, layout: dict<any>)
 enddef
 
 # Main render function - modified to better handle tab indicators
+
 export def Render(): string
     var show_num = g:buftabline_numbers == 1
     var show_ord = g:buftabline_numbers == 2
     var show_tab_ind = g:buftabline_tab_indicators
-    var current_tab = tabpagenr()  # Get current tab number once
+    var current_tab = tabpagenr()  # Keep this for other uses
     var lpad = g:buftabline_separators ? nr2char(0x23B8) : ' '
 
     var bufnums = UserBuffers()
     var currentbuf = winbufnr(0)
-    centerbuf = currentbuf  # Always center on the current buffer
+    centerbuf = currentbuf
 
-    # Early return if no buffers to display
     if empty(bufnums)
         return '%#BufTabLineFill#' 
     endif
@@ -292,7 +292,7 @@ export def Render(): string
         tab.hilite = currentbuf == bufnum ? 'Current' :
                     bufwinnr(bufnum) > 0 ? 'Active' : 'Hidden'
 
-        # Get buffer label info
+        # Get buffer label info - this includes the tab_num
         var label_info = GetBufferLabel(bufnum, show_num ? bufnum : show_ord ? screen_num : 0)
         tab.path = label_info.path
         tab.sep = label_info.sep
@@ -300,9 +300,9 @@ export def Render(): string
         # Create the prefix with tab indicator and/or buffer number
         var combined_pre = ''
         if show_tab_ind
-            # Always show current tab number, consistent for all buffers in this tab
-            # This is the key fix - use current_tab directly, not an incrementing value
-            combined_pre = '%#BufTabLineCurrentTab#T' .. current_tab .. ' %#BufTabLineFill#'
+            # FIX: Use the actual tab number where this buffer resides
+            var buffer_tab_num = label_info.tab_num > 0 ? label_info.tab_num : current_tab
+            combined_pre = '%#BufTabLineCurrentTab#T' .. buffer_tab_num .. ' %#BufTabLineFill#'
         endif
         if strlen(label_info.pre) > 0
             combined_pre = combined_pre .. label_info.pre
@@ -319,6 +319,7 @@ export def Render(): string
         add(tabs, tab)
     endfor
 
+    # ... rest of the function remains the same
     # Disambiguate same-name files
     DisambiguateTabs(tabs)
 
@@ -349,7 +350,6 @@ export def Render(): string
             '%#BufTabLineFill#'
     endif
 enddef
-
 
 # Update tabline display
 export def Update(zombie: number)
