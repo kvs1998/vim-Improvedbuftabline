@@ -60,7 +60,7 @@ def CreatePlugMappings()
 
     for n in plug_range
         var b = n == -1 ? -1 : n - 1
-        execute printf("noremap <silent> <Plug>BufTabLine.Go(%d) :<C-U>exe 'b'.get(buftabline#UserBuffers(),%d,'')<cr>", n, b)
+        execute printf("noremap <silent> <Plug>BufTabLine.Go(%d) :<C-U>exe 'b'.get(g:buftabline#UserBuffers(),%d,'')<cr>", n, b)
     endfor
 enddef
 
