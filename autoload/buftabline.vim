@@ -13,10 +13,9 @@ var sid = expand('<SID>')
 # Public function to get user buffers for the CURRENT NATIVE TAB PAGE
 export def UserBuffers(): list<number>
     var buffers_in_current_tab = []
-    # Get all windows in the current tab page. gettabinfo(v:tabpagenr) returns a list
-    # and the first element is a dictionary with 'windows' key.
-    # v:tabpagenr is a variable, so it's correct as is for the current tab page index.
-    var current_tab_windows = gettabinfo(v:tabpagenr)[0].windows
+    # Get all windows in the current tab page.
+    # Corrected: Use tabpagenr() function to get the current tab page number robustly.
+    var current_tab_windows = gettabinfo(tabpagenr())[0].windows
 
     for winid in current_tab_windows
         var buf = winbufnr(winid)
@@ -36,7 +35,7 @@ export def SwitchBuffer(bufnum: number, clicks: number, button: string, mod: str
     var found_tabpage = -1
 
     # Search for the buffer in all windows across all tab pages
-    for t in range(1, tabpagenr('$')) # Corrected: tabpagenr()
+    for t in range(1, tabpagenr('$')) # Correct: tabpagenr()
         for w in gettabinfo(t)[0].windows
             if winbufnr(w) == bufnum
                 found_winid = w
@@ -51,7 +50,8 @@ export def SwitchBuffer(bufnum: number, clicks: number, button: string, mod: str
 
     if found_winid != -1
         # If found, jump to that tabpage first, then to the window
-        if found_tabpage != v:tabpagenr
+        # Corrected: Compare with tabpagenr()
+        if found_tabpage != tabpagenr()
              execute 'tabnext ' .. found_tabpage
         endif
         execute found_winid .. 'wincmd w' # Jump to the window within its tabpage
@@ -308,7 +308,7 @@ export def Render(): string
         # --- MODIFICATION: Combine tab indicator with buffer number/ordinal prefix ---
         var combined_pre = ''
         if show_tab_ind
-            combined_pre = 'T' .. v:tabpagenr .. ' ' # v:tabpagenr is the current native tab page number
+            combined_pre = 'T' .. tabpagenr() .. ' ' # Corrected: tabpagenr()
         endif
         if strlen(label_info.pre) > 0 # label_info.pre already contains the buffer/ordinal number + space
             combined_pre = combined_pre .. label_info.pre
